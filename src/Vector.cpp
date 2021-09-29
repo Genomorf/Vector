@@ -1,4 +1,4 @@
-﻿#include <iostream>
+#include <iostream>
 #include <initializer_list>
 #include <vector>
 #include <algorithm>
@@ -75,13 +75,13 @@ public:
 	void destructElements() {
 		for (size_t i = 0; i < size_; i++)
 		{
-			buff[i].~T();
+			buff[size_ - 1 - i].~T();
 		}
 	}
 
 	~VectorBuffer() {
 		destructElements();
-		delete[] reinterpret_cast<void*>(buff);
+		::operator delete(buff);
 	}
 };
 
@@ -90,6 +90,19 @@ void swap(VectorBuffer<T>& lhs, VectorBuffer<T>& rhs) {
 	swap(lhs.buff, rhs.buff);
 	swap(lhs.capacity_, rhs.capacity_);
 	swap(lhs.size_, rhs.size_);
+}
+
+
+template <typename T>
+typename std::enable_if<std::is_nothrow_move_constructible<T>::value>::type
+move_if_noexcept_else_copy(T* src, T* dst, int size) {
+	std::move(src, src + size, dst);
+}
+
+template <typename T>
+typename std::enable_if<!std::is_nothrow_move_constructible<T>::value>::type
+move_if_noexcept_else_copy(T* src, T* dst, int size) {
+	std::copy(src, src + size, dst);
 }
 
 template <typename T>
@@ -101,7 +114,7 @@ public:
 		size_t counter = 0;
 		for (auto it = in_list.begin(); it != in_list.end(); ++it, ++counter)
 		{
-			tmpbuff[counter] = *it;
+			tmpbuff[counter] = *it; // from std::initializer_list can only copy objects
 		}
 		swap(tmpbuff, buff);
 	}
@@ -116,22 +129,22 @@ public:
 	T& operator[] (size_t n) {
 		return buff[n];
 	}
-	void copyToBuff(VectorBuffer<T>& otherbuff) {
-		for (size_t i = 0; i < buff.size_; i++)
-		{
-			otherbuff[i] = move_if_noexcept(buff[i]);
-		}
-	}
+	//void copyToBuff(VectorBuffer<T>& otherbuff) {
+	//	for (size_t i = 0; i < buff.size_; i++)
+	//	{
+	//		otherbuff[i] = std::move_if_noexcept(buff[i]);
+	//	}
+	//}
 	void reserve(size_t new_capacity) {
 		if (new_capacity < buff.capacity_ || new_capacity >= max_reverse_value) return;
 		VectorBuffer<T> tmpbuff(new_capacity, 0);
 		for (size_t i = 0; i < buff.size_; i++)
 		{
-			new (tmpbuff.buff + i) T(move(buff[i]));
+			new (tmpbuff.buff + i) T(std::move_if_noexcept(buff[i]));
 		}
 		tmpbuff.size_ = buff.size_;
 		swap(tmpbuff, buff);
-	}
+	}	
 	void resize(size_t new_size) {
 		if (new_size > max_resize_value) return;
 		if (new_size < buff.size_) {
@@ -142,7 +155,8 @@ public:
 				reserve(new_size);
 			}
 			VectorBuffer<T> tmpbuff(buff.capacity_, new_size);
-			copyToBuff(tmpbuff);
+			//copyToBuff(tmpbuff);
+			move_if_noexcept_else_copy(buff.buff, tmpbuff.buff, buff.size_);
 			for (size_t i = tmpbuff.size_; i < new_size; i++)
 			{
 				tmpbuff[i] = T();
@@ -152,16 +166,29 @@ public:
 		}
 	}
 	// TODO:
-	/*	void pushBack(const int& value) {
+	void pushBack(const T& value) {
+		cout << "1";
 		if (buff.capacity_ == buff.size_) {
-			MyVectorBuff tmpbuff(buff.size_ * 2, buff.size_);
-			// TODO: if moveable - move, else copy
-			buff.copyFromBuffToOtherBuff(tmpbuff);
-			swap(tmpbuff, buff);
+			reserve(buff.capacity_ * 2);
 		}
-		buff[buff.size_] = move_if_noexcept(value);
+		VectorBuffer<T> tmpbuff(buff.capacity_, buff.size_);
+		move_if_noexcept_else_copy(buff.buff, tmpbuff.buff, buff.size_);
+		new (&tmpbuff.buff[buff.size_]) T(value);
+		swap(tmpbuff, buff);
 		++buff.size_;
 	}
+	void pushBack(T&& value) {
+		cout << "2";
+		if (buff.capacity_ == buff.size_) {
+			reserve(buff.capacity_ * 2);
+		}
+		VectorBuffer<T> tmpbuff(buff.capacity_, buff.size_);
+		move_if_noexcept_else_copy(buff.buff, tmpbuff.buff, buff.size_);
+		new (&tmpbuff.buff[buff.size_]) T(std::move_if_noexcept(value));
+		swap(tmpbuff, buff);
+		++buff.size_;
+	}
+	/*
 		template<typename T>
 	void emplaceBack(T&& t) {
 		if (buff.capacity_ == buff.size_) {
@@ -214,7 +241,7 @@ struct MyInt {
 		swap(*this, mi);
 		cout << "moved\n";
 	}
-	MyInt& operator=(MyInt&& mi) noexcept {
+	MyInt& operator=(MyInt&& mi)noexcept {
 		swap(*this, mi);
 		cout << "moved =\n";
 		return *this;
@@ -236,12 +263,12 @@ std::ostream& operator <<(std::ostream& out, const MyInt& mi) {
 	out << *mi.x_ << " ";
 	return out;
 }
-
+#include <type_traits>
 template <typename T>
 void printVector(Vector<T>& sv) {
 	static int count = 0;
 	++count;
-	cout << count << " Capacity: " << sv.capacity() << " Size: " << sv.size() << '\n';
+	cout << count <<  " Capacity: " << sv.capacity() << " Size: " << sv.size() << '\n';
 
 	for (auto it = sv.begin(), it_end = sv.end(); it != it_end; ++it) {
 		cout << *it << " ";
@@ -249,14 +276,43 @@ void printVector(Vector<T>& sv) {
 	cout << '\n';
 
 }
+
+
+
+
+
+
+
+
+//template <typename Iter, typename T>
+//typename std::enable_if<!std::is_nothrow_move_constructible<T>::value>::type
+//copyFromInitList(Iter first, Iter last, T* dst) {
+//	std::copy(first, last, dst);
+//}
+//
+//template <typename Iter, typename T>
+//typename std::enable_if<std::is_nothrow_move_constructible<T>::value>::type
+//copyFromInitList(Iter first, Iter last, T* dst) {
+//	std::move(first, last, dst);
+//}
+
 int main() {
-	Vector<MyInt> sv(10);
-	//printVector(sv);
-	sv.reserve(20);
-	printVector(sv);
+	Vector<MyInt> v{ 1,2,3 };
+	printVector(v);
+	//MyInt x = 1;
+	//MyInt x2 = move(x);
+	MyInt x = 11;
+	v.pushBack(move(x));
+	printVector(v);
+	//copy_if_moveable(&il, x, 3);
+	//for (size_t i = 0; i < 3; i++)
+	//{
+	//	x[i] = i;
+	//}
+	//MyInt* x2 = new MyInt[3];
+	//std::move(x, x + 3, x2);
 	//sv.resize(20);
 	//printVector(sv);
-
 	//printVectorBuffer(sv);
 	//VectorBuffer<MyInt> sv2(move(sv));
 	//printVectorBuffer(sv2);
