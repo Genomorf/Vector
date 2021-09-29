@@ -140,27 +140,20 @@ public:
 		VectorBuffer<T> tmpbuff(new_capacity, 0);
 		for (size_t i = 0; i < buff.size_; i++)
 		{
-			new (tmpbuff.buff + i) T(std::move_if_noexcept(buff[i]));
+			// don't construct values by default, placeemnt new right in memory
+			new (tmpbuff.buff + i) T(std::move_if_noexcept(buff[i])); 
 		}
 		tmpbuff.size_ = buff.size_;
 		swap(tmpbuff, buff);
-	}	
+	}		
 	void resize(size_t new_size) {
 		if (new_size > max_resize_value) return;
 		if (new_size < buff.size_) {
 			buff.size_ = new_size;
 		}
 		else if (new_size > buff.size_) {
-			if (new_size > buff.capacity_) {
-				reserve(new_size);
-			}
-			VectorBuffer<T> tmpbuff(buff.capacity_, new_size);
-			//copyToBuff(tmpbuff);
+			VectorBuffer<T> tmpbuff(new_size, new_size);
 			move_if_noexcept_else_copy(buff.buff, tmpbuff.buff, buff.size_);
-			for (size_t i = tmpbuff.size_; i < new_size; i++)
-			{
-				tmpbuff[i] = T();
-			}
 			tmpbuff.size_ = new_size;
 			swap(tmpbuff, buff);
 		}
@@ -169,7 +162,7 @@ public:
 	void pushBack(const T& value) {
 		cout << "1";
 		if (buff.capacity_ == buff.size_) {
-			reserve(buff.capacity_ * 2);
+			buff.capacity_ = buff.capacity_ * 2;
 		}
 		VectorBuffer<T> tmpbuff(buff.capacity_, buff.size_);
 		move_if_noexcept_else_copy(buff.buff, tmpbuff.buff, buff.size_);
@@ -180,7 +173,7 @@ public:
 	void pushBack(T&& value) {
 		cout << "2";
 		if (buff.capacity_ == buff.size_) {
-			reserve(buff.capacity_ * 2);
+			buff.capacity_ = buff.capacity_ * 2;
 		}
 		VectorBuffer<T> tmpbuff(buff.capacity_, buff.size_);
 		move_if_noexcept_else_copy(buff.buff, tmpbuff.buff, buff.size_);
@@ -299,11 +292,11 @@ void printVector(Vector<T>& sv) {
 int main() {
 	Vector<MyInt> v{ 1,2,3 };
 	printVector(v);
-	//MyInt x = 1;
+	MyInt x = 1;
 	//MyInt x2 = move(x);
-	MyInt x = 11;
-	v.pushBack(move(x));
+	v.pushBack(MyInt(1));
 	printVector(v);
+
 	//copy_if_moveable(&il, x, 3);
 	//for (size_t i = 0; i < 3; i++)
 	//{
