@@ -13,6 +13,19 @@ using std::move;
 static const int max_reverse_value = 100'000;
 static const int max_resize_value = 100'000;
 
+
+// This Vector has been constructed using:
+// 1. Copy and swap idiom.
+// 2. John Kalb exception safety idiom (Kalb line) http://exceptionsafecode.com/
+// 3. Single Responsibility Principle and Interface Segregation Principle. 
+// VectorBuffer<T> class provides RAII wrapper to the raw dynamic array and 
+// responsible for resource owning. Vector<T> class provides container interface 
+// and std::vector like methods.
+//
+// But the Vector is incredibly slow according to std::vector. May be because of
+// exceptions safety tmpbuff operations and bad memory management. 
+// 100.000 push backs takes 3.0 seconds versus ~0.0 seconds of std::vector.push_back().
+// This attempt is obviously bad, but for pet-project is good enough :)
 template<typename T>
 class VectorBuffer {
 public:
@@ -80,6 +93,8 @@ void swap(VectorBuffer<T>& lhs, VectorBuffer<T>& rhs) {
 	swap(lhs.size_, rhs.size_);
 }
 
+// little SFINAE to detect if elements could be moved with no exceptions, 
+// if not - should be enabled std::copy
 template <typename T>
 typename std::enable_if<std::is_nothrow_move_constructible<T>::value>::type
 move_if_noexcept_else_copy(T* src, T* dst, int size) {
@@ -92,10 +107,12 @@ move_if_noexcept_else_copy(T* src, T* dst, int size) {
 	std::copy(src, src + size, dst);
 }
 
-// TODO const??
+
 template <typename T>
 class Vector {
 public:
+	// copy from std::initialiser_list to VectorBuffer<T> constructor:
+	// Vector<int> {1, 2, 3};
 	Vector(const std::initializer_list<T>& in_list) {
 		VectorBuffer<T> tmpbuff(in_list.size(), 0);
 		auto it = in_list.begin();
@@ -106,6 +123,8 @@ public:
 		tmpbuff.size_ = in_list.size();
 		swap(tmpbuff, buff);
 	}
+	// construct Vector by value or default value:
+	// Vector<int> (10, 0);
 	Vector(size_t amount = 0, const T& value = T()) {
 		VectorBuffer<T> tmpbuff(amount, 0);
 		for (size_t i = 0; i < amount; ++i)
@@ -115,6 +134,7 @@ public:
 		tmpbuff.size_ = amount;
 		swap(tmpbuff, buff);
 	}
+	// construct Vector by iterators of other container
 	template<typename Iter, typename = typename std::enable_if<!std::is_integral<Iter>::value>::type>
 	Vector(Iter first, Iter last) {
 		auto size = std::distance(first, last);
@@ -180,7 +200,7 @@ public:
 		swap(tmpbuff, buff);
 		++buff.size_;
 	}
-
+	// simple random access Iterator
 	class Iterator {
 	public:
 		using value_type = T;
@@ -256,7 +276,7 @@ public:
 private:
 	VectorBuffer<T> buff;
 	size_t  check_and_double_capacity() {
-		return buff.capacity_ == buff.size_ ? buff.capacity_ * 2 + 1 : buff.capacity_;
+		return buff.capacity_ == buff.size_ ? buff.capacity_ * 2.5 + 1 : buff.capacity_;
 	}
 	template <typename T>
 	friend void swap(Vector<T>& lhs, Vector<T>& rhs);
