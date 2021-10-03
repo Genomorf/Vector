@@ -2,52 +2,47 @@
 
 MyInt::MyInt() {
 #ifdef DEBUG
-		std::cout << "constructed\n";
+	std::cout << "constructed\n";
 #endif
-		x_ = new int(10);
+	x_ = new int(10);
 	}
 MyInt::MyInt(int x) {
 #ifdef DEBUG
-		std::cout << "constructed\n";
+	std::cout << "constructed\n";
 #endif
-		x_ = new int(x);
+	x_ = new int(x);
 	}
 MyInt::MyInt(const MyInt& mi) {
-		x_ = new int(*mi.x_);
+	x_ = new int(*mi.x_);
 #ifdef DEBUG
-		std::cout << "copied\n";
+	std::cout << "copied\n";
 #endif
-
 	}
 MyInt& MyInt::operator=(const MyInt& mi) {
-		x_ = new int(*mi.x_);
+	x_ = new int(*mi.x_);
 #ifdef DEBUG
-		std::cout << "copied =\n";
+	std::cout << "copied =\n";
 #endif
-		return *this;
+	return *this;
 	}
 MyInt::MyInt(MyInt&& mi) noexcept {
-		swap(*this, mi);
+	swap(*this, mi);
 #ifdef DEBUG
-
-		std::cout << "moved\n";
+	std::cout << "moved\n";
 #endif
 	}
 MyInt& MyInt::operator=(MyInt&& mi)noexcept {
-		swap(*this, mi);
+	swap(*this, mi);
 #ifdef DEBUG
-
-		std::cout << "moved =\n";
+	std::cout << "moved =\n";
 #endif
-		return *this;
+	return *this;
 	}
 MyInt::~MyInt() {
 #ifdef DEBUG
-
-		std::cout << "destructed\n";
+	std::cout << "destructed\n";
 #endif
-
-		delete x_;
+	delete x_;
 	}
 
 void swap(MyInt& lhs, MyInt& rhs) {
