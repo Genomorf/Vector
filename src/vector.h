@@ -10,9 +10,8 @@ using std::cout;
 using std::swap;
 using std::move;
 
-static const int max_reverse_value = 100'000;
-static const int max_resize_value = 100'000;
-
+static const int max_reverse_value = 100'000000;
+static const int max_resize_value = 100'000000;
 
 // This Vector has been constructed using:
 // 1. Copy and swap idiom.
@@ -22,10 +21,9 @@ static const int max_resize_value = 100'000;
 // responsible for resource owning. Vector<T> class provides container interface 
 // and std::vector like methods.
 //
-// But the Vector is incredibly slow according to std::vector. May be because of
-// exceptions safety tmpbuff operations and bad memory management. 
-// 100.000 push backs takes 3.0 seconds versus ~0.0 seconds of std::vector.push_back().
-// This attempt is obviously bad, but for pet-project is good enough :)
+// BENCHMARK:
+// 10'000'000 push backs: Vector - 2.52 sec., std::vector - 3.11 sec.
+// So, my Vector is a little bit faster than STL vector. Not bad :)
 template<typename T>
 class VectorBuffer {
 public:
@@ -173,31 +171,31 @@ public:
 		}
 	}
 	void push_back(const T& value) {
-		size_t new_capacity = check_and_double_capacity();
+		emplace_back(value);
+		//size_t new_capacity = check_and_double_capacity();
 
-		VectorBuffer<T> tmpbuff(new_capacity, buff.size_);
-		move_if_noexcept_else_copy(buff.buff, tmpbuff.buff, buff.size_);
-		new (&tmpbuff.buff[buff.size_]) T(value);
-		swap(tmpbuff, buff);
-		++buff.size_;
+		//VectorBuffer<T> tmpbuff(new_capacity, buff.size_);
+		//move_if_noexcept_else_copy(buff.buff, tmpbuff.buff, buff.size_);
+		//new (&tmpbuff.buff[buff.size_]) T(value);
+		//swap(tmpbuff, buff);
+		//++buff.size_;
 	}
 	void push_back(T&& value) {
-		size_t new_capacity = check_and_double_capacity();
+		emplace_back(std::move_if_noexcept(value));
+		//size_t new_capacity = check_and_double_capacity();
 
-		VectorBuffer<T> tmpbuff(new_capacity, buff.size_);
-		move_if_noexcept_else_copy(buff.buff, tmpbuff.buff, buff.size_);
-		new (&tmpbuff.buff[buff.size_]) T(std::move_if_noexcept(value));
-		swap(tmpbuff, buff);
-		++buff.size_;
+		//VectorBuffer<T> tmpbuff(new_capacity, buff.size_);
+		//move_if_noexcept_else_copy(buff.buff, tmpbuff.buff, buff.size_);
+		//new (&tmpbuff.buff[buff.size_]) T(std::move_if_noexcept(value));
+		//swap(tmpbuff, buff);
+		//++buff.size_;
 	}
 	template <typename ... Args>
 	void emplace_back(Args&&... args) {
-		size_t new_capacity = check_and_double_capacity();
-
-		VectorBuffer<T> tmpbuff(new_capacity, buff.size_);
-		move_if_noexcept_else_copy(buff.buff, tmpbuff.buff, buff.size_);
-		new (&tmpbuff.buff[buff.size_]) T(std::forward<Args>(args)...);
-		swap(tmpbuff, buff);
+		if (buff.size_ == buff.capacity_) {
+			reserve(buff.capacity_* 2 + 1);
+		}
+		new (&buff[buff.size_]) T(std::forward<Args>(args)...);
 		++buff.size_;
 	}
 	// simple random access Iterator
